@@ -1,0 +1,61 @@
+name: Fire Risk Assessment CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set Up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Dependencies
+        run: npm install  # Change to 'pip install -r requirements.txt' for Python
+
+      - name: Run Tests
+        run: npm test  # Adjust based on your tech stack
+
+  security_check:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Run SonarQube Analysis
+        uses: SonarSource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: "https://sonarcloud.io"
+
+      - name: Run Trivy Security Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "your-docker-image" # Replace with actual image
+          format: "table"
+          exit-code: "0"
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: security_check
+    steps:
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: "fire-risk-app"  # Replace with your Azure Web App name
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
+          package: .
+
+      - name: Notify on Deployment Success
+        run: echo "Deployment completed successfully!"
